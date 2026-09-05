@@ -1,0 +1,27 @@
+# Secretos y archivos locales
+vault_pass.txt
+secrets.plain.yml
+*.retry
+*.log
+*.pid
+*.vault
+.ansible/
+.vagrant/
+*.pem
+*.key
+*.crt
+*.csr
+*.jks
+*.keystore
+*.truststore
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor
+.vscode/
+.idea/
+
+# Pre-commit
+.pre-commit-config.yaml

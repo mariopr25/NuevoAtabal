@@ -1,0 +1,107 @@
+---
+# ============================================================
+# VARIABLES GLOBALES DEL PROYECTO
+# ============================================================
+
+# -------------------- DOMINIOS E IP --------------------
+dominio_web: "moodle.tudominio.com"
+dominio_correo: "mail.tudominio.com"
+ip_publica: "1.2.3.4"
+
+# -------------------- USUARIO ADMIN --------------------
+admin_user: mario
+admin_ssh_port: 6022
+admin_public_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+timezone: Europe/Madrid
+
+# -------------------- SECRETOS (VAULT) --------------------
+# TODAS las contraseñas deben estar cifradas con !vault
+# Para cifrar: ansible-vault encrypt_string 'valor' --name 'vault_nombre'
+
+vault_db_root_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vault_db_moodle_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vault_db_exporter_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vault_redis_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vault_moodle_admin_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vault_grafana_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vault_upgrade_secret: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+vmail_admin_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+# -------------------- CORREO VIRTUAL --------------------
+vmail_uid: 5000
+vmail_gid: 5000
+vmail_domain: "{{ dominio_correo }}"
+vmail_admin_user: admin
+
+# -------------------- MARIADB --------------------
+mariadb_version: 11.4
+mariadb_buff_pool: 6G
+mariadb_log_file_size: 512M
+mariadb_max_connections: 300
+mariadb_table_open_cache: 4000
+
+# -------------------- REDIS --------------------
+redis_maxmemory: 2gb
+redis_maxmemory_policy: allkeys-lru
+
+# -------------------- PHP --------------------
+php_version: 8.4
+php_memory_limit: 512M
+php_max_execution_time: 600
+php_max_input_time: 600
+php_post_max_size: 100M
+php_upload_max_filesize: 100M
+php_opcache_memory: 256
+php_opcache_max_files: 10000
+
+# -------------------- NGINX --------------------
+nginx_worker_processes: auto
+nginx_worker_connections: 4096
+nginx_keepalive_timeout: 65
+
+# -------------------- MOODLE --------------------
+moodle_download_url: "https://download.moodle.org/download.php/direct/stable502/moodle-latest-502.tgz"
+moodle_db_name: moodle_db
+moodle_db_user: moodle_user
+moodle_dataroot: /var/moodledata
+moodle_site_fullname: "Mi Moodle"
+moodle_site_shortname: "Moodle"
+moodle_admin_user: admin
+moodle_admin_email: "admin@{{ dominio_web }}"
+
+# -------------------- LET'S ENCRYPT --------------------
+letsencrypt_email: "admin@{{ dominio_web }}"
+mail_smtpd_tls_cert: "/etc/letsencrypt/live/{{ dominio_correo }}/fullchain.pem"
+mail_smtpd_tls_key: "/etc/letsencrypt/live/{{ dominio_correo }}/privkey.pem"
+
+# -------------------- MONITORIZACIÓN --------------------
+monit_alert_email: "admin@{{ dominio_web }}"
+
+# Prometheus y exporters
+prometheus_version: 2.53.0
+node_exporter_version: 1.8.1
+mysqld_exporter_version: 0.15.1
+nginx_exporter_version: 0.11.0
+redis_exporter_version: 1.60.0
+phpfpm_exporter_version: 1.0.0
+prometheus_retention_time: 15d
+prometheus_scrape_interval: 30s
+
+# Grafana
+grafana_admin_user: admin
