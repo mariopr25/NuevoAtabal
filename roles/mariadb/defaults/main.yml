@@ -1,0 +1,9 @@
+---
+mariadb_version: 11.4
+mariadb_buff_pool: 6G
+mariadb_log_file_size: 512M
+mariadb_max_connections: 300
+mariadb_table_open_cache: 4000
+mariadb_db_name: moodle_db
+mariadb_db_user: moodle_user
+mariadb_db_password: "{{ vault_db_moodle_password }}"

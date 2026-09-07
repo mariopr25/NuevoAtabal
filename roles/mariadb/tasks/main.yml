@@ -1,0 +1,74 @@
+---
+- name: Instalar MariaDB server y cliente (desde repositorios de Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - mariadb-server
+      - mariadb-client
+      - python3-pymysql
+    state: present
+    update_cache: true
+
+- name: Asegurar que MariaDB esté en ejecución
+  ansible.builtin.systemd:
+    name: mariadb
+    state: started
+    enabled: true
+
+- name: Configurar contraseña root
+  community.mysql.mysql_user:
+    name: root
+    host: localhost
+    password: "{{ vault_db_root_password }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    state: present
+
+- name: Eliminar usuarios anónimos
+  community.mysql.mysql_user:
+    name: ''
+    host_all: true
+    state: absent
+    login_user: root
+    login_password: "{{ vault_db_root_password }}"
+
+- name: Eliminar base de datos test
+  community.mysql.mysql_db:
+    name: test
+    state: absent
+    login_user: root
+    login_password: "{{ vault_db_root_password }}"
+
+- name: Crear usuario exporter para Prometheus
+  community.mysql.mysql_user:
+    name: exporter
+    host: localhost
+    password: "{{ vault_db_exporter_password }}"
+    priv: '*.*:PROCESS,REPLICATION CLIENT,SELECT'
+    state: present
+    login_user: root
+    login_password: "{{ vault_db_root_password }}"
+
+- name: Crear base de datos Moodle
+  community.mysql.mysql_db:
+    name: "{{ moodle_db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ vault_db_root_password }}"
+
+- name: Crear usuario Moodle
+  community.mysql.mysql_user:
+    name: "{{ moodle_db_user }}"
+    host: localhost
+    password: "{{ vault_db_moodle_password }}"
+    priv: "{{ moodle_db_name }}.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{ vault_db_root_password }}"
+
+- name: Copiar configuración optimizada de MariaDB
+  ansible.builtin.template:
+    src: 99-moodle.cnf.j2
+    dest: /etc/mysql/mariadb.conf.d/99-moodle.cnf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart mariadb

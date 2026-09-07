@@ -1,0 +1,77 @@
+---
+- name: Instalar Certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Detener Nginx si está en ejecución (para modo standalone)
+  ansible.builtin.systemd:
+    name: nginx
+    state: stopped
+  failed_when: false   # equivalente a ignore_errors: true, pero más explícito
+  # O bien, si quieres ignorar solo errores específicos:
+  # register: stop_result
+  # failed_when: stop_result.failed and 'Could not find' not in stop_result.msg
+
+- name: Obtener certificado para web (modo standalone)
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --standalone
+      - -d
+      - "{{ dominio_web }}"
+      - --non-interactive
+      - --agree-tos
+      - --email
+      - "{{ letsencrypt_email }}"
+      - --keep-until-expiring
+      - --preferred-challenges
+      - http
+  args:
+    creates: /etc/letsencrypt/live/{{ dominio_web }}/fullchain.pem
+
+- name: Obtener certificado para correo (si es diferente)
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --standalone
+      - -d
+      - "{{ dominio_correo }}"
+      - --non-interactive
+      - --agree-tos
+      - --email
+      - "{{ letsencrypt_email }}"
+      - --keep-until-expiring
+      - --preferred-challenges
+      - http
+  args:
+    creates: /etc/letsencrypt/live/{{ dominio_correo }}/fullchain.pem
+  when: dominio_correo != dominio_web
+
+- name: Configurar renovación automática
+  ansible.builtin.cron:
+    name: "Renovar certificados Let's Encrypt"
+    hour: "2"
+    minute: "30"
+    job: "/usr/bin/certbot renew --quiet && systemctl reload nginx postfix dovecot"
+
+- name: Asegurar permisos de certificados
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0644"
+  loop:
+    - "/etc/letsencrypt/live/{{ dominio_web }}/fullchain.pem"
+    - "/etc/letsencrypt/live/{{ dominio_web }}/privkey.pem"
+    - "/etc/letsencrypt/live/{{ dominio_correo }}/fullchain.pem"
+    - "/etc/letsencrypt/live/{{ dominio_correo }}/privkey.pem"
+  register: letsencrypt_permisos_result
+  failed_when: letsencrypt_permisos_result.failed and 'No such file' not in letsencrypt_permisos_result.msg
+
+- name: Arrancar Nginx (ahora con certificados)
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
