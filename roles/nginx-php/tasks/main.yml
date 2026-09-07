@@ -1,0 +1,233 @@
+---
+# ============================================================
+# NGINX + PHP-FPM PARA MOODLE
+# ============================================================
+
+# --- INSTALACIÓN DE NGINX (desde repositorios de Ubuntu) ---
+
+- name: Instalar Nginx (desde repositorios de Ubuntu)
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+
+# ============================================================
+# PHP DESDE PACKAGES.SURY.ORG
+# ============================================================
+
+- name: Descargar clave GPG de packages.sury.org
+  ansible.builtin.get_url:
+    url: https://packages.sury.org/php/apt.gpg
+    dest: /usr/share/keyrings/sury-php.gpg
+    mode: '0644'
+    force: true
+  register: gpg_download
+  until: gpg_download is success
+  retries: 3
+  delay: 5
+
+- name: Añadir repositorio PHP de packages.sury.org (formato DEB822)
+  ansible.builtin.deb822_repository:
+    name: sury-php
+    types: [deb]
+    uris: https://packages.sury.org/php/
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: [main]
+    signed_by: /usr/share/keyrings/sury-php.gpg
+    state: present
+  register: repo_result
+  until: repo_result is success
+  retries: 3
+  delay: 5
+
+- name: Actualizar caché de apt
+  ansible.builtin.apt:
+    update_cache: true
+
+
+# ============================================================
+# INSTALAR PHP-FPM Y EXTENSIONES
+# ============================================================
+
+- name: Instalar PHP-FPM y extensiones
+  ansible.builtin.apt:
+    name:
+      - php{{ php_version }}-fpm
+      - php{{ php_version }}-common
+      - php{{ php_version }}-cli
+      - php{{ php_version }}-mysql
+      - php{{ php_version }}-mbstring
+      - php{{ php_version }}-xml
+      - php{{ php_version }}-curl
+      - php{{ php_version }}-zip
+      - php{{ php_version }}-gd
+      - php{{ php_version }}-intl
+      - php{{ php_version }}-soap
+      - php{{ php_version }}-redis
+      - php{{ php_version }}-opcache
+      - php{{ php_version }}-xmlrpc
+      - php{{ php_version }}-ctype
+      - php{{ php_version }}-iconv
+      - php{{ php_version }}-bcmath
+      - php{{ php_version }}-exif
+      - php{{ php_version }}-ldap
+    state: present
+
+
+# ============================================================
+# IGBINARY + REDIS
+# ============================================================
+
+- name: Instalar extensión igbinary para Redis
+  ansible.builtin.apt:
+    name: php{{ php_version }}-igbinary
+    state: present
+
+- name: Habilitar extensiones redis e igbinary
+  ansible.builtin.command:
+    cmd: phpenmod -v {{ php_version }} redis igbinary
+  changed_when: false
+
+
+# ============================================================
+# ELIMINAR CONFIGURACIÓN POR DEFECTO DE NGINX
+# ============================================================
+
+- name: Eliminar sitio por defecto de Nginx
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+
+# ============================================================
+# ELIMINAR POOL PHP-FPM POR DEFECTO
+# ============================================================
+
+# Ubuntu/Sury instala inicialmente www.conf.
+# Ese pool utiliza /run/php/php{{ php_version }}-fpm.sock.
+#
+# Nuestro pool "moodle" utiliza el mismo socket, por lo que
+# debemos eliminar www.conf para que no existan dos pools
+# intentando escuchar en el mismo socket.
+
+- name: Eliminar pool PHP-FPM por defecto
+  ansible.builtin.file:
+    path: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+    state: absent
+
+
+# ============================================================
+# CREAR DIRECTORIO DE LOGS DE PHP
+# ============================================================
+
+- name: Crear directorio de logs de PHP
+  ansible.builtin.file:
+    path: /var/log/php
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+
+# ============================================================
+# CONFIGURAR PHP.INI
+# ============================================================
+
+- name: Configurar php.ini
+  ansible.builtin.template:
+    src: php.ini.j2
+    dest: "/etc/php/{{ php_version }}/fpm/php.ini"
+    mode: '0644'
+
+
+# ============================================================
+# CONFIGURAR POOL DE PHP-FPM PARA MOODLE
+# ============================================================
+
+- name: Configurar pool de Moodle en PHP-FPM
+  ansible.builtin.template:
+    src: moodle_pool.conf.j2
+    dest: "/etc/php/{{ php_version }}/fpm/pool.d/moodle.conf"
+    mode: '0644'
+
+
+# ============================================================
+# CONFIGURAR NGINX GLOBAL
+# ============================================================
+
+- name: Configurar Nginx global
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: '0644'
+  notify: Test nginx syntax
+
+
+# ============================================================
+# CONFIGURAR SITIO MOODLE EN NGINX
+# ============================================================
+
+# --- SIN SSL PARA PRUEBAS ---
+
+- name: Configurar sitio Moodle en Nginx (sin SSL - para pruebas)
+  ansible.builtin.template:
+    src: moodle.http.conf.j2
+    dest: /etc/nginx/conf.d/moodle.conf
+    mode: '0644'
+  notify: Test nginx syntax
+  when: not nginx_use_ssl | default(false)
+
+
+# --- CON SSL PARA PRODUCCIÓN ---
+
+- name: Configurar sitio Moodle en Nginx (con SSL - para producción)
+  ansible.builtin.template:
+    src: moodle.ssl.conf.j2
+    dest: /etc/nginx/conf.d/moodle.conf
+    mode: '0644'
+  notify: Test nginx syntax
+  when: nginx_use_ssl | default(false)
+
+
+# ============================================================
+# VALIDAR CONFIGURACIÓN DE PHP-FPM
+# ============================================================
+
+- name: Validar configuración de PHP-FPM
+  ansible.builtin.command:
+    cmd: "php-fpm{{ php_version }} -t"
+  changed_when: false
+
+
+# ============================================================
+# HABILITAR Y ARRANCAR PHP-FPM
+# ============================================================
+
+- name: Habilitar y arrancar PHP-FPM
+  ansible.builtin.systemd:
+    name: "php{{ php_version }}-fpm"
+    enabled: true
+    state: restarted
+
+
+# ============================================================
+# ESPERAR AL SOCKET DE PHP-FPM
+# ============================================================
+
+- name: Esperar a que el socket de PHP-FPM esté disponible
+  ansible.builtin.wait_for:
+    path: "/run/php/php{{ php_version }}-fpm.sock"
+    state: present
+    timeout: 10
+
+
+# ============================================================
+# HABILITAR Y ARRANCAR NGINX
+# ============================================================
+
+- name: Habilitar y arrancar Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

@@ -106,6 +106,7 @@ php_opcache_max_files: 10000
 nginx_worker_processes: auto
 nginx_worker_connections: 4096
 nginx_keepalive_timeout: 65
+nginx_ssl_enabled: false
 
 # -------------------- MOODLE --------------------
 moodle_download_url: "https://download.moodle.org/download.php/direct/stable502/moodle-latest-502.tgz"

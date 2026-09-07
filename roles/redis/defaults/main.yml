@@ -1,0 +1,3 @@
+---
+redis_maxmemory: 2gb
+redis_maxmemory_policy: allkeys-lru

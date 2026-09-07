@@ -1,0 +1,31 @@
+[PHP]
+engine = On
+short_open_tag = Off
+precision = 14
+output_buffering = 4096
+zlib.output_compression = Off
+implicit_flush = Off
+unserialize_callback_func =
+serialize_precision = -1
+disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,
+disable_classes =
+zend.enable_gc = On
+expose_php = Off
+max_execution_time = {{ php_max_execution_time }}
+max_input_time = {{ php_max_input_time }}
+memory_limit = {{ php_memory_limit }}
+error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+error_log = /var/log/php/php_errors.log
+upload_max_filesize = {{ php_upload_max_filesize }}
+post_max_size = {{ php_post_max_size }}
+date.timezone = {{ timezone }}
+
+[opcache]
+opcache.enable=1
+opcache.memory_consumption={{ php_opcache_memory }}
+opcache.max_accelerated_files={{ php_opcache_max_files }}
+opcache.revalidate_freq=60
+opcache.fast_shutdown=1

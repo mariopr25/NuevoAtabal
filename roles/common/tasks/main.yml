@@ -1,4 +1,12 @@
 ---
+- name: Crear directorio temporal para Ansible con permisos adecuados
+  ansible.builtin.file:
+    path: /tmp/ansible_tmp
+    state: directory
+    mode: '1777'
+    owner: root
+    group: root
+
 - name: Actualizar repositorios
   ansible.builtin.apt:
     update_cache: true

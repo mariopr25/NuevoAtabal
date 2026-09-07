@@ -1,0 +1,12 @@
+---
+php_version: 8.4
+php_memory_limit: 512M
+php_max_execution_time: 600
+php_max_input_time: 600
+php_post_max_size: 100M
+php_upload_max_filesize: 100M
+php_opcache_memory: 256
+php_opcache_max_files: 10000
+nginx_worker_processes: auto
+nginx_worker_connections: 4096
+nginx_keepalive_timeout: 65

@@ -1,0 +1,20 @@
+---
+- name: Instalar Redis
+  ansible.builtin.apt:
+    name: redis-server
+    state: present
+
+- name: Configurar Redis (maxmemory, política, contraseña, bind)
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: '0644'
+  notify: Restart redis
+
+- name: Habilitar y arrancar Redis
+  ansible.builtin.systemd:
+    name: redis-server
+    enabled: true
+    state: started

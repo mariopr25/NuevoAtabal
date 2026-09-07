@@ -1,0 +1,9 @@
+# Redis configuration for Moodle
+maxmemory {{ redis_maxmemory }}
+maxmemory-policy {{ redis_maxmemory_policy }}
+save ""
+appendonly no
+tcp-keepalive 300
+requirepass {{ vault_redis_password }}
+bind 127.0.0.1
+port 6379
