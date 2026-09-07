@@ -100,7 +100,7 @@ Esto evitará que subas accidentalmente secretos sin cifrar.
 ### En producción
 
 ```bash
-ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml --ask-vault-pass
+ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
 ```
 
 ### En pruebas con Vagrant

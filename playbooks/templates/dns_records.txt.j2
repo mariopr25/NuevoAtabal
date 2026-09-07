@@ -1,0 +1,30 @@
+# ============================================================
+# REGISTROS DNS PARA EL SERVIDOR
+# ============================================================
+# Añade estos registros en tu proveedor DNS antes de poner en producción.
+
+; ---- A (IPv4) ----
+{{ dominio_web }}.    IN  A   {{ ip_publica }}
+{{ dominio_correo }}. IN  A   {{ ip_publica }}
+
+; ---- MX (Mail Exchange) ----
+{{ dominio_correo }}. IN MX 10 {{ dominio_correo }}.
+
+; ---- SPF (Sender Policy Framework) ----
+{{ dominio_correo }}.   IN  TXT "v=spf1 mx ~all"
+
+; ---- DKIM (DomainKeys Identified Mail) ----
+# Clave pública generada con opendkim (selector default)
+default._domainkey.{{ dominio_correo }}. IN TXT "v=DKIM1; k=rsa; p={{ dkim_public_key }}"
+
+; ---- DMARC (Domain-based Message Authentication) ----
+_dmarc.{{ dominio_correo }}. IN TXT "v=DMARC1; p=quarantine; rua=mailto:admin@{{ dominio_correo }}"
+
+; ---- SRV para Autodiscover (Outlook/Thunderbird) ----
+_autodiscover._tcp.{{ dominio_correo }}.  IN SRV 0 0 443 {{ dominio_correo }}.
+
+; ---- SRV para Submission (puerto 587) ----
+_submission._tcp.{{ dominio_correo }}.   IN SRV 0 0 587 {{ dominio_correo }}.
+
+; ---- PTR (Reverse DNS) ----
+# Solicita a tu proveedor (OVH) que configure el PTR de {{ ip_publica }} a {{ dominio_correo }}.

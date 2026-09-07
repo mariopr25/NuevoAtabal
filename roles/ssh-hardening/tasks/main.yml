@@ -1,0 +1,74 @@
+---
+- name: Crear usuario administrador no root
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    state: present
+    create_home: true
+
+- name: Crear directorio .ssh
+  ansible.builtin.file:
+    path: "/home/{{ admin_user }}/.ssh"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: '0700'
+
+- name: Inyectar clave pública
+  ansible.posix.authorized_key:
+    user: "{{ admin_user }}"
+    key: "{{ admin_public_key }}"
+    state: present
+
+- name: Configurar sudo sin contraseña (NOPASSWD)
+  ansible.builtin.lineinfile:
+    dest: /etc/sudoers
+    line: "{{ admin_user }} ALL=(ALL) NOPASSWD:ALL"
+    validate: 'visudo -cf %s'
+    state: present
+
+- name: Cambiar puerto SSH y deshabilitar root
+  ansible.builtin.lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "^{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^#?Port ', line: "Port {{ admin_ssh_port }}" }
+    - { regexp: '^#?PermitRootLogin ', line: "PermitRootLogin no" }
+    - { regexp: '^#?PasswordAuthentication ', line: "PasswordAuthentication no" }
+    - { regexp: '^#?ChallengeResponseAuthentication ', line: "ChallengeResponseAuthentication no" }
+  notify: Restart ssh
+
+- name: Bloquear contraseña de root
+  ansible.builtin.user:
+    name: root
+    password: "!"
+
+- name: Configurar UFW - denegar por defecto
+  community.general.ufw:
+    policy: deny
+    direction: incoming
+
+- name: Permitir puertos en UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "{{ admin_ssh_port }}"
+    - 80
+    - 443
+    - 25
+    - 465
+    - 587
+    - 143
+    - 993
+    - 110
+    - 995
+
+- name: Habilitar UFW
+  community.general.ufw:
+    state: enabled

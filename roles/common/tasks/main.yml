@@ -1,0 +1,66 @@
+---
+- name: Actualizar repositorios
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Instalar paquetes base
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - net-tools
+      - unattended-upgrades
+      - software-properties-common
+      - gnupg
+      - ca-certificates
+      - logrotate
+    state: present
+
+- name: Configurar zona horaria
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Configurar locales
+  community.general.locale_gen:
+    name: es_ES.UTF-8
+    state: present
+
+- name: Aplicar sysctl (swappiness, file-max)
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { key: vm.swappiness, value: 5 }
+    - { key: fs.file-max, value: 65535 }
+
+- name: Límites de archivos (soft/hard)
+  community.general.pam_limits:
+    domain: "{{ item.domain }}"
+    limit_type: "{{ item.type }}"
+    limit_item: nofile
+    value: "{{ item.value }}"
+  loop:
+    - { domain: '*', type: soft, value: 65535 }
+    - { domain: '*', type: hard, value: 65535 }
+    - { domain: 'root', type: soft, value: 65535 }
+    - { domain: 'root', type: hard, value: 65535 }
+
+- name: Copiar configuración de unattended-upgrades
+  ansible.builtin.copy:
+    src: 20auto-upgrades
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: '0644'
+  notify: Restart unattended-upgrades
+
+- name: Habilitar y arrancar unattended-upgrades
+  ansible.builtin.systemd:
+    name: unattended-upgrades
+    enabled: true
+    state: started

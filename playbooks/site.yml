@@ -1,6 +1,31 @@
 ---
-- name: Playbook principal (en construcción)
+- name: Desplegar servidor completo (Moodle + Correo + Monitorización)
   hosts: all
-  tasks:
-    - name: Ping de prueba
-      ansible.builtin.ping:
+  become: true
+  gather_facts: true
+  strategy: linear   # Para calmar a ansible-lint (opcional, pero recomendado)
+  vars_files:
+    - ../group_vars/all.yml
+
+  roles:
+    - ssh-hardening                  # Crear usuario mario, deshabilitar root, cambiar puerto SSH, clave pública, sudo
+    - common                         # Paquetes base, sysctl, límites, UFW, zona horaria, unattended-upgrades
+    # - letsencrypt                    # Obtener certificados SSL (standalone) ANTES de arrancar Nginx
+    # - mariadb                        # Instalar MariaDB, configurar rendimiento, crear usuario exporter
+    # - redis                          # Instalar Redis, configurar maxmemory, política, contraseña, bind localhost
+    # - nginx-php                      # Instalar Nginx y PHP-FPM, configurar pool Moodle, opcache, status page
+    # - moodle                         # Descargar Moodle 5.2, crear DB, config.php con Redis, instalación silenciosa
+    # - mail                           # Postfix (virtual), Dovecot (passwd-file), ClamAV, SpamAssassin, DKIM
+    # - monitoring-base                # Fail2ban, RKHunter, Monit
+    # - monitoring-prometheus          # Prometheus y exporters (versiones parametrizadas, listen localhost)
+    # - monitoring-grafana             # Grafana, datasource vía API REST, dashboards
+
+  post_tasks:
+    - name: Generar archivo con registros DNS
+      ansible.builtin.template:            # <- FQCN
+        src: dns_records.txt.j2
+        dest: ./dns_records.txt
+        mode: '0644'                       # <- Permisos seguros
+      delegate_to: localhost
+      become: false
+      tags: dns

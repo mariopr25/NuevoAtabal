@@ -11,7 +11,7 @@ ip_publica: "178.32.16.134"
 # -------------------- USUARIO ADMIN --------------------
 admin_user: mario
 admin_ssh_port: 6022
-admin_public_key: "{{ lookup('file', '~/.ssh/id_ed25519_migracion') }}"
+admin_public_key: "{{ lookup('file', '~/.ssh/id_ed25519_migracion.pub') }}"
 timezone: Europe/Madrid
 
 # -------------------- SECRETOS (VAULT) --------------------
