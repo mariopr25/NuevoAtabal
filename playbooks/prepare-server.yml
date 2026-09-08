@@ -1,0 +1,10 @@
+---
+- name: Preparar servidor (hardening inicial)
+  hosts: vps
+  become: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  roles:
+    - common
+    - ssh-hardening

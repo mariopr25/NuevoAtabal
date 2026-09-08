@@ -81,13 +81,6 @@
     mode: '0644'
   notify: Restart dovecot
 
-- name: Configurar 10-ssl.conf
-  ansible.builtin.template:
-    src: 10-ssl.conf.j2
-    dest: /etc/dovecot/conf.d/10-ssl.conf
-    mode: '0644'
-  notify: Restart dovecot
-
 - name: Configurar 10-auth.conf
   ansible.builtin.template:
     src: 10-auth.conf.j2

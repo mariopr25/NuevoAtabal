@@ -1,6 +1,35 @@
 dovecot_config_version = 2.4.2
+dovecot_storage_version = 2.4
+
 !include conf.d/*.conf
+
 protocols = imap pop3 lmtp
-listen = *, ::
-disable_plaintext_auth = no
-mail_location = maildir:/var/vmail/%d/%n
+listen = 0.0.0.0
+hostname = {{ mail_vmail_domain | default(dominio_correo) }}
+
+mail_driver = maildir
+mail_path = /var/vmail/%{user | domain}/%{user | username}
+
+ssl = required
+ssl_server_cert_file = {{ mail_smtpd_tls_cert | replace('<', '') }}
+ssl_server_key_file = {{ mail_smtpd_tls_key | replace('<', '') }}
+ssl_min_protocol = TLSv1.2
+ssl_cipher_list = HIGH:!aNULL:!MD5
+
+service auth {
+  unix_listener auth-userdb {
+    mode = 0666
+  }
+}
+
+protocol lda {
+  mail_plugins {
+    sieve = yes
+  }
+}
+
+protocol lmtp {
+  mail_plugins {
+    sieve = yes
+  }
+}

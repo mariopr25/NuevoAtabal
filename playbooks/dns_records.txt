@@ -1,0 +1,30 @@
+# ============================================================
+# REGISTROS DNS PARA EL SERVIDOR
+# ============================================================
+# Añade estos registros en tu proveedor DNS antes de poner en producción.
+
+; ---- A (IPv4) ----
+nuevoatabal.store.    IN  A   178.32.16.134
+mail.nuevoatabal.store. IN  A   178.32.16.134
+
+; ---- MX (Mail Exchange) ----
+mail.nuevoatabal.store. IN MX 10 mail.nuevoatabal.store.
+
+; ---- SPF (Sender Policy Framework) ----
+mail.nuevoatabal.store.   IN  TXT "v=spf1 mx ~all"
+
+; ---- DKIM (DomainKeys Identified Mail) ----
+# Clave pública generada con opendkim (selector default)
+default._domainkey.mail.nuevoatabal.store. IN TXT "v=DKIM1; k=rsa; p=p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq9vfiEtFi51lovxsLOPggRgr5/nWhaNL/zQ2r2+t1+sgx6Lkjr5oGHEWW7QFutKFgh3CyXYIGcbvVk6zQbLu6PuR5fcpNw9bkRbdPlzCCZMFQ+UlzJESRorzOzPVKqJgmVKWE52VuCBs1US1eavk1sIUXERZU0ckRxq7P0h9BTrm0oyUFBLSPFrmKmyG5gljzZ/p/btLy3tEIa""
+
+; ---- DMARC (Domain-based Message Authentication) ----
+_dmarc.mail.nuevoatabal.store. IN TXT "v=DMARC1; p=quarantine; rua=mailto:admin@mail.nuevoatabal.store"
+
+; ---- SRV para Autodiscover (Outlook/Thunderbird) ----
+_autodiscover._tcp.mail.nuevoatabal.store.  IN SRV 0 0 443 mail.nuevoatabal.store.
+
+; ---- SRV para Submission (puerto 587) ----
+_submission._tcp.mail.nuevoatabal.store.   IN SRV 0 0 587 mail.nuevoatabal.store.
+
+; ---- PTR (Reverse DNS) ----
+# Solicita a tu proveedor (OVH) que configure el PTR de 178.32.16.134 a mail.nuevoatabal.store.

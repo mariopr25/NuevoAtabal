@@ -1,0 +1,13 @@
+---
+all:
+  children:
+    vps:
+      hosts:
+        178.32.16.134:
+          ansible_user: ubuntu
+          ansible_port: 22
+          ansible_ssh_pass: "{{ vault_initial_password }}"
+          ansible_become: true
+          ansible_become_method: sudo
+          ansible_become_pass: "{{ vault_initial_password }}"
+          ansible_python_interpreter: /usr/bin/python3

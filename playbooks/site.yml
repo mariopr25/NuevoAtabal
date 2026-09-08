@@ -1,20 +1,17 @@
 ---
 - name: Desplegar servidor completo (Moodle + Correo + Monitorización)
-  hosts: all
+  hosts: vps
   become: true
-  gather_facts: true
-  strategy: linear   # Para calmar a ansible-lint (opcional, pero recomendado)
+  strategy: linear
   vars_files:
     - ../group_vars/all.yml
 
   roles:
-    - ssh-hardening                  # Crear usuario mario, deshabilitar root, cambiar puerto SSH, clave pública, sudo
-    - common                         # Paquetes base, sysctl, límites, UFW, zona horaria, unattended-upgrades
     - letsencrypt                    # Obtener certificados SSL (standalone) ANTES de arrancar Nginx
     - mariadb                        # Instalar MariaDB, configurar rendimiento, crear usuario exporter
     - redis                          # Instalar Redis, configurar maxmemory, política, contraseña, bind localhost
     - nginx-php                      # Instalar Nginx y PHP-FPM, configurar pool Moodle, opcache, status page
-    # - moodle                         # Descargar Moodle 5.2, crear DB, config.php con Redis, instalación silenciosa
+    - moodle                         # Descargar Moodle 5.2, crear DB, config.php con Redis, instalación silenciosa
     - mail                           # Postfix (virtual), Dovecot (passwd-file), ClamAV, SpamAssassin, DKIM
     # - monitoring-base                # Fail2ban, RKHunter, Monit
     # - monitoring-prometheus          # Prometheus y exporters (versiones parametrizadas, listen localhost)
@@ -27,5 +24,8 @@
         dest: ./dns_records.txt
         mode: '0644'                       # <- Permisos seguros
       delegate_to: localhost
+      run_once: true
       become: false
       tags: dns
+      when: dominio_web != "moodle.local"
+      # noqa: run-once (se usa con delegate_to para asegurar ejecución única)

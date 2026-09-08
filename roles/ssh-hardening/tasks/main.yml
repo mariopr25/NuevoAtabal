@@ -1,4 +1,12 @@
 ---
+# ============================================================
+# ROL SSH-HARDENING
+# ============================================================
+# Este rol se ejecuta en la primera conexión (como ubuntu)
+# y prepara el servidor para acceso seguro con mario.
+
+# 1. CREAR USUARIO ADMINISTRADOR
+# ============================================================
 - name: Crear usuario administrador no root
   ansible.builtin.user:
     name: "{{ admin_user }}"
@@ -8,6 +16,8 @@
     state: present
     create_home: true
 
+# 2. CONFIGURAR CLAVE PÚBLICA PARA EL NUEVO USUARIO
+# ============================================================
 - name: Crear directorio .ssh
   ansible.builtin.file:
     path: "/home/{{ admin_user }}/.ssh"
@@ -22,6 +32,8 @@
     key: "{{ admin_public_key }}"
     state: present
 
+# 3. CONFIGURAR SUDO SIN CONTRASEÑA
+# ============================================================
 - name: Configurar sudo sin contraseña (NOPASSWD)
   ansible.builtin.lineinfile:
     dest: /etc/sudoers
@@ -29,7 +41,9 @@
     validate: 'visudo -cf %s'
     state: present
 
-- name: Cambiar puerto SSH y deshabilitar root
+# 4. CONFIGURAR SSH (PUERTO, ROOT, AUTENTICACIÓN)
+# ============================================================
+- name: Configurar puerto SSH y deshabilitar root
   ansible.builtin.lineinfile:
     dest: /etc/ssh/sshd_config
     regexp: "^{{ item.regexp }}"
@@ -40,6 +54,7 @@
     - { regexp: '^#?PermitRootLogin ', line: "PermitRootLogin no" }
     - { regexp: '^#?PasswordAuthentication ', line: "PasswordAuthentication no" }
     - { regexp: '^#?ChallengeResponseAuthentication ', line: "ChallengeResponseAuthentication no" }
+    - { regexp: '^#?PubkeyAuthentication ', line: "PubkeyAuthentication yes" }
   notify: Restart ssh
 
 - name: Bloquear contraseña de root
@@ -47,6 +62,8 @@
     name: root
     password: "!"
 
+# 5. CONFIGURAR UFW
+# ============================================================
 - name: Configurar UFW - denegar por defecto
   community.general.ufw:
     policy: deny
@@ -72,3 +89,83 @@
 - name: Habilitar UFW
   community.general.ufw:
     state: enabled
+
+# ============================================================
+# 6. LIMPIEZA Y SEGURIDAD ADICIONAL (SOLO EN PRIMERA EJECUCIÓN)
+#    Estas tareas se ejecutan solo cuando el usuario de
+#    conexión es 'ubuntu' (primera ejecución).
+# ============================================================
+
+- name: Eliminar archivos de configuración SSH conflictivos de cloud-init
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/ssh/sshd_config.d/50-cloud-init.conf
+    - /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+  when: ansible_user == "ubuntu"
+  failed_when: false
+  notify: Restart ssh
+
+- name: Asegurar que PasswordAuthentication está deshabilitado en la configuración principal
+  ansible.builtin.replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication\s+(yes|no)'
+    replace: 'PasswordAuthentication no'
+  when: ansible_user == "ubuntu"
+  notify: Restart ssh
+
+- name: Asegurar que ChallengeResponseAuthentication está deshabilitado
+  ansible.builtin.replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ChallengeResponseAuthentication\s+(yes|no)'
+    replace: 'ChallengeResponseAuthentication no'
+  when: ansible_user == "ubuntu"
+  notify: Restart ssh
+
+- name: Asegurar que PubkeyAuthentication está habilitado
+  ansible.builtin.replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PubkeyAuthentication\s+(yes|no)'
+    replace: 'PubkeyAuthentication yes'
+  when: ansible_user == "ubuntu"
+  notify: Restart ssh
+
+- name: Cerrar puerto 22 en UFW (ya no se usará)
+  ansible.builtin.command:
+    cmd: ufw delete allow 22/tcp
+  when: ansible_user == "ubuntu"
+  changed_when: false
+  failed_when: false
+
+- name: Deshabilitar usuario ubuntu (bloquear contraseña)
+  ansible.builtin.user:
+    name: ubuntu
+    password_lock: true
+    state: present
+  when: ansible_user == "ubuntu"
+  failed_when: false
+
+- name: Eliminar directorio .ssh del usuario ubuntu
+  ansible.builtin.file:
+    path: /home/ubuntu/.ssh
+    state: absent
+  when: ansible_user == "ubuntu"
+  failed_when: false
+
+- name: Eliminar usuario ubuntu
+  ansible.builtin.user:
+    name: ubuntu
+    state: absent
+    remove: true
+  when: ansible_user == "ubuntu"
+  failed_when: false
+
+# ============================================================
+# 7. REINICIAR SSH AL FINAL (POR SI EL HANDLER NO SE EJECUTA)
+# ============================================================
+- name: Reiniciar SSH para aplicar todos los cambios
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+  when: ansible_user == "ubuntu"
