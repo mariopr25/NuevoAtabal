@@ -1,0 +1,40 @@
+---
+- name: Restart postfix
+  ansible.builtin.systemd:
+    name: postfix
+    state: restarted
+  failed_when: false
+
+- name: Restart dovecot
+  ansible.builtin.systemd:
+    name: dovecot
+    state: restarted
+  failed_when: false
+
+- name: Restart spamd
+  ansible.builtin.systemd:
+    name: spamd
+    state: restarted
+  failed_when: false
+
+- name: Restart opendkim
+  ansible.builtin.systemd:
+    name: opendkim
+    state: restarted
+  failed_when: false
+
+- name: Postmap vmailbox
+  ansible.builtin.command:
+    cmd: postmap /etc/postfix/vmailbox
+  changed_when: false
+
+- name: Postmap virtual
+  ansible.builtin.command:
+    cmd: postmap /etc/postfix/virtual
+  changed_when: false
+
+- name: Compile sieve
+  ansible.builtin.command:
+    cmd: sievec /etc/dovecot/report-spam.sieve
+  changed_when: false
+  failed_when: false

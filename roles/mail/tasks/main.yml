@@ -1,0 +1,236 @@
+---
+- name: Instalar paquetes de correo
+  ansible.builtin.apt:
+    name:
+      - postfix
+      - postfix-pcre
+      - dovecot-core
+      - dovecot-imapd
+      - dovecot-pop3d
+      - dovecot-sieve
+      - dovecot-lmtpd
+      - clamav
+      - clamav-daemon
+      - spamassassin
+      - spamass-milter
+      - opendkim
+      - opendkim-tools
+      - mailutils
+    state: present
+
+- name: Detener servicios para configuración
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+  loop:
+    - postfix
+    - dovecot
+    - clamav-daemon
+    - spamd
+    - opendkim
+  failed_when: false
+
+- name: Crear grupo vmail
+  ansible.builtin.group:
+    name: vmail
+    gid: "{{ mail_vmail_gid }}"
+    state: present
+
+- name: Crear usuario vmail
+  ansible.builtin.user:
+    name: vmail
+    uid: "{{ mail_vmail_uid }}"
+    group: vmail
+    shell: /sbin/nologin
+    home: /var/vmail
+    create_home: true
+
+- name: Crear directorio de correo virtual
+  ansible.builtin.file:
+    path: /var/vmail/{{ mail_vmail_domain }}
+    state: directory
+    owner: vmail
+    group: vmail
+    mode: '0750'
+
+- name: Configurar Postfix main.cf
+  ansible.builtin.template:
+    src: main.cf.j2
+    dest: /etc/postfix/main.cf
+    mode: '0644'
+  notify: Restart postfix
+
+- name: Configurar Postfix master.cf
+  ansible.builtin.template:
+    src: master.cf.j2
+    dest: /etc/postfix/master.cf
+    mode: '0644'
+  notify: Restart postfix
+
+- name: Configurar Dovecot
+  ansible.builtin.template:
+    src: dovecot.conf.j2
+    dest: /etc/dovecot/dovecot.conf
+    mode: '0644'
+  notify: Restart dovecot
+
+- name: Configurar 10-mail.conf
+  ansible.builtin.template:
+    src: 10-mail.conf.j2
+    dest: /etc/dovecot/conf.d/10-mail.conf
+    mode: '0644'
+  notify: Restart dovecot
+
+- name: Configurar 10-ssl.conf
+  ansible.builtin.template:
+    src: 10-ssl.conf.j2
+    dest: /etc/dovecot/conf.d/10-ssl.conf
+    mode: '0644'
+  notify: Restart dovecot
+
+- name: Configurar 10-auth.conf
+  ansible.builtin.template:
+    src: 10-auth.conf.j2
+    dest: /etc/dovecot/conf.d/10-auth.conf
+    mode: '0644'
+  notify: Restart dovecot
+
+- name: Configurar 15-lda.conf
+  ansible.builtin.template:
+    src: 15-lda.conf.j2
+    dest: /etc/dovecot/conf.d/15-lda.conf
+    mode: '0644'
+  notify: Restart dovecot
+
+- name: Crear archivo passwd para usuarios virtuales
+  ansible.builtin.template:
+    src: passwd.j2
+    dest: /etc/dovecot/passwd
+    owner: vmail
+    group: vmail
+    mode: '0600'
+
+- name: Crear archivo de mailbox para Postfix
+  ansible.builtin.lineinfile:
+    dest: /etc/postfix/vmailbox
+    line: "{{ mail_vmail_admin_user }}@{{ mail_vmail_domain }} {{ mail_vmail_domain }}/{{ mail_vmail_admin_user }}/"
+    create: true
+    state: present
+  notify: Postmap vmailbox
+  # noqa: risky-file-permissions
+
+- name: Crear alias virtual (opcional)
+  ansible.builtin.lineinfile:
+    dest: /etc/postfix/virtual
+    line: "admin@{{ mail_vmail_domain }} {{ mail_vmail_admin_user }}@{{ mail_vmail_domain }}"
+    create: true
+    state: present
+  notify: Postmap virtual
+  # noqa: risky-file-permissions
+
+- name: Configurar SpamAssassin
+  ansible.builtin.template:
+    src: spamassassin.cf.j2
+    dest: /etc/spamassassin/local.cf
+    mode: '0644'
+  notify: Restart spamd
+
+- name: Configurar opendkim
+  ansible.builtin.template:
+    src: opendkim.conf.j2
+    dest: /etc/opendkim.conf
+    mode: '0644'
+  notify: Restart opendkim
+
+- name: Crear directorio de claves DKIM
+  ansible.builtin.file:
+    path: /etc/opendkim/keys
+    state: directory
+    owner: opendkim
+    group: opendkim
+    mode: '0750'
+
+- name: Generar claves DKIM
+  ansible.builtin.command:
+    cmd: opendkim-genkey -r -s default -d {{ mail_vmail_domain }}
+  args:
+    chdir: /etc/opendkim/keys
+    creates: /etc/opendkim/keys/default.txt
+  register: mail_dkim_gen
+
+- name: Mover clave pública
+  ansible.builtin.command:
+    cmd: mv /etc/opendkim/keys/default.txt /etc/opendkim/keys/{{ mail_vmail_domain }}.txt
+  when: mail_dkim_gen.changed
+  changed_when: mail_dkim_gen.changed
+  # noqa: no-handler
+
+- name: Extraer clave pública DKIM
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      cat /etc/opendkim/keys/{{ mail_vmail_domain }}.txt | grep -o 'p=.*' | cut -d' ' -f2
+    executable: /bin/bash
+  register: mail_dkim_public_key_raw
+  changed_when: false
+  # noqa: risky-shell-pipe
+
+- name: Guardar clave pública en variable
+  ansible.builtin.set_fact:
+    mail_dkim_public_key: "{{ mail_dkim_public_key_raw.stdout }}"
+
+- name: Configurar socket de opendkim
+  ansible.builtin.lineinfile:
+    dest: /etc/default/opendkim
+    regexp: '^SOCKET='
+    line: 'SOCKET="inet:8891@localhost"'
+    state: present
+    mode: '0644'
+  notify: Restart opendkim
+  # noqa: risky-file-permissions
+
+- name: Configurar Postfix para usar milters (SpamAssassin + DKIM)
+  ansible.builtin.lineinfile:
+    dest: /etc/postfix/main.cf
+    regexp: '^smtpd_milters'
+    line: 'smtpd_milters = inet:localhost:8891'
+    state: present
+  notify: Restart postfix
+
+- name: Crear script de filtro Sieve para spam
+  ansible.builtin.template:
+    src: report-spam.sieve.j2
+    dest: /etc/dovecot/report-spam.sieve
+    mode: '0644'
+  notify: Compile sieve
+
+- name: Crear directorio para PID de OpenDKIM
+  ansible.builtin.file:
+    path: /run/opendkim
+    state: directory
+    owner: opendkim
+    group: opendkim
+    mode: '0755'
+
+- name: Habilitar y arrancar todos los servicios
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - postfix
+    - dovecot
+    - clamav-daemon
+    - spamd
+    - opendkim
+  register: mail_service_start
+  failed_when: false
+  async: 30
+  poll: 5
+
+- name: Programar freshclam
+  ansible.builtin.cron:
+    name: freshclam
+    minute: "0"
+    hour: "3"
+    job: /usr/bin/freshclam --quiet

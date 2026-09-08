@@ -1,0 +1,19 @@
+namespace inbox {
+  inbox = yes
+  separator = /
+  mailbox Drafts {
+    auto = subscribe
+  }
+  mailbox Junk {
+    auto = subscribe
+    special_use = \Junk
+  }
+  mailbox Trash {
+    auto = subscribe
+    special_use = \Trash
+  }
+  mailbox Sent {
+    auto = subscribe
+    special_use = \Sent
+  }
+}

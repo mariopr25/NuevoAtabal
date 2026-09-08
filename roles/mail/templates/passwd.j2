@@ -1,0 +1,1 @@
+{{ mail_vmail_admin_user }}@{{ mail_vmail_domain }}:{{ mail_vmail_admin_pass | password_hash('md5') }}:{{ mail_vmail_uid }}:{{ mail_vmail_gid }}::/var/vmail/{{ mail_vmail_domain }}/{{ mail_vmail_admin_user }}::userdb_mail=maildir:/var/vmail/{{ mail_vmail_domain }}/{{ mail_vmail_admin_user }}

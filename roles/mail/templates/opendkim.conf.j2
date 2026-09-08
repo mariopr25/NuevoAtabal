@@ -1,0 +1,18 @@
+AutoRestart             Yes
+AutoRestartRate         10/1h
+UMask                   002
+Syslog                  yes
+SyslogSuccess           Yes
+LogWhy                  Yes
+
+Canonicalization        relaxed/simple
+Mode                    sv
+SubDomains              no
+OversignHeaders         From
+
+UserID                  opendkim
+Socket                  inet:8891@localhost
+KeyFile                 /etc/opendkim/keys/{{ mail_vmail_domain }}.txt
+Selector                default
+Domain                  {{ mail_vmail_domain }}
+PidFile                 /run/opendkim/opendkim.pid

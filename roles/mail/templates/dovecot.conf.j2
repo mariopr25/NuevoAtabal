@@ -1,0 +1,6 @@
+dovecot_config_version = 2.4.2
+!include conf.d/*.conf
+protocols = imap pop3 lmtp
+listen = *, ::
+disable_plaintext_auth = no
+mail_location = maildir:/var/vmail/%d/%n

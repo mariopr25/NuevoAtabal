@@ -1,0 +1,8 @@
+---
+mail_hostname: "{{ dominio_correo }}"
+mail_vmail_uid: 5000
+mail_vmail_gid: 5000
+mail_vmail_domain: "{{ dominio_correo }}"
+mail_vmail_admin_user: admin
+mail_smtpd_tls_cert: "/etc/letsencrypt/live/{{ dominio_correo }}/fullchain.pem"
+mail_smtpd_tls_key: "/etc/letsencrypt/live/{{ dominio_correo }}/privkey.pem"
